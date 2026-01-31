@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考えるを、ひとりにしない｜社長の思考パートナーAI</title>
+    <meta name="description" content="中小企業経営者のための思考パートナー。相談できるGPTと、残せるアプリで、頭の中を整理して資産に変える。">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;400;600&family=Tenor+Sans&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lenis (Smooth Scroll) -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+    
+    <!-- Custom Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deep: '#050505',       // 漆黒
+                        sub: '#1A1A1A',        // ダークグレー
+                        text: '#E2E8F0',       // シルバーホワイト
+                        accent: '#8B5CF6',     // ベースアクセント（紫）
+                        accent2: '#06B6D4',    // セカンドアクセント（シアン）
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', 'sans-serif'],
+                        serif: ['"Noto Serif JP"', 'serif'],
+                        eng: ['"Tenor Sans"', 'sans-serif'],
+                    },
+                    letterSpacing: {
+                        widest: '.1em',
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                        'elegant-gradient': 'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Styles */
+        body {
+            background-color: #050505;
+            color: #E2E8F0;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* WebGL Canvas Background */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+        #canvas-container.loaded {
+            opacity: 1;
+        }
+
+        /* Noise Texture Overlay */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.07;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Custom Selection Color */
+        ::selection {
+            background: #8B5CF6;
+            color: #FFFFFF;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+        }
+        
+        /* Button Hover Effect */
+        .btn-glow {
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            transition: color 0.5s ease;
+        }
+        .btn-glow::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .btn-glow:hover::before {
+            opacity: 0.25; 
+        }
+        .btn-glow::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, #8B5CF6, #06B6D4, transparent);
+            transform: scaleX(0.5);
+            transition: transform 0.5s ease;
+        }
+        .btn-glow:hover::after {
+            transform: scaleX(1);
+        }
+
+        /* Text Gradient Effect */
+        .text-gradient-accent {
+            background: linear-gradient(135deg, #A78BFA 0%, #22D3EE 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Animations */
+        .char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(20px);
+            filter: blur(8px);
+            transition: opacity 1s ease, transform 1s ease, filter 1s ease;
+        }
+        .char.visible {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+        }
+
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.1);
+            color: #A78BFA;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            margin-bottom: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        /* Step Number Styling */
+        .step-num {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #E2E8F0;
+            font-family: 'Tenor Sans', sans-serif;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);
+        }
+        
+        /* Form Inputs */
+        input, textarea {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            transition: all 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #8B5CF6;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Toast */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .toast {
+            background: rgba(5, 5, 5, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #8B5CF6;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-top: 10px;
+            font-size: 14px;
+            color: #E2E8F0;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Lenis Fixes */
+        html.lenis { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+    </style>
+</head>
+<body class="font-sans font-light leading-loose text-text antialiased selection:bg-accent selection:text-white">
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- WebGL Background -->
+    <div id="canvas-container"></div>
+    <div class="noise-overlay"></div>
+
+    <!-- Header -->
+    <header class="fixed top-0 w-full z-50 px-6 py-4 md:px-12 flex justify-between items-center transition-all duration-500 bg-deep/50 backdrop-blur-md border-b border-white/5" id="main-header">
+        <a href="#" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent2 shadow-lg shadow-accent/20"></div>
+            <h1 class="font-serif font-bold text-sm md:text-base tracking-wider text-white">考えるを、ひとりにしない</h1>
+        </a>
+        <nav class="hidden md:flex gap-6">
+            <a href="#pain" class="text-xs tracking-widest text-white/70 hover:text-white transition-colors">共感</a>
+            <a href="#solution" class="text-xs tracking-widest text-white/70 hover:text-white transition-colors">解決策</a>
+            <a href="#apps" class="text-xs tracking-widest text-white/70 hover:text-white transition-colors">アプリ</a>
+            <a href="#steps" class="text-xs tracking-widest text-white/70 hover:text-white transition-colors">使い方</a>
+        </nav>
+        <!-- Added target="_blank" -->
+        <a href="https://www.smileplusctg.com/contact" target="_blank" rel="noopener noreferrer" class="text-xs tracking-widest text-white hover:text-accent2 transition-colors border border-white/20 px-4 py-2 rounded-full hover:border-accent2 hover:bg-white/5">
+            無料で体験
+        </a>
+    </header>
+
+    <main>
+        <!-- 1. Hero Section -->
+        <section class="relative min-h-screen flex flex-col justify-center items-center px-6 pt-20" data-scroll-section>
+            <!-- Thin border frame -->
+            <div class="absolute inset-4 md:inset-8 border border-white/5 pointer-events-none z-10"></div>
+            
+            <div class="text-center z-20 max-w-5xl relative">
+                <!-- Abstract Glow behind text -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-accent/5 blur-3xl rounded-full pointer-events-none"></div>
+
+                <div class="inline-flex items-center gap-3 mb-8 fade-text delay-100 border border-white/10 rounded-full px-4 py-1 bg-white/5 backdrop-blur-sm">
+                    <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+                    <p class="font-sans text-xs tracking-widest text-white/80">社長のための思考パートナーAI</p>
+                </div>
+                
+                <h2 class="font-serif text-4xl md:text-6xl lg:text-7xl leading-tight mb-16 text-white split-text">
+                    想いを、動きに変える。
+                </h2>
+                
+                <div class="fade-text delay-500 flex justify-center mb-12">
+                    <p class="text-sm md:text-base leading-8 text-white/70 glass px-8 py-6 max-w-2xl rounded-xl border border-white/10">
+                        未整理の考えや計画を、言葉にすることから始めましょう。<br>
+                        <br>
+                        そこから仕組みは生まれます。
+                    </p>
+                </div>
+
+                <div class="fade-text delay-700 flex flex-col md:flex-row gap-6 justify-center items-center">
+                    <!-- Added target="_blank" -->
+                    <a href="https://www.smileplusctg.com/contact" target="_blank" rel="noopener noreferrer" class="btn-glow inline-block border border-white/20 px-10 py-4 text-sm tracking-widest text-white hover:border-white/40 transition-colors w-full md:w-auto text-center">
+                        無料で相談してみる
+                    </a>
+                    <a href="#apps" class="inline-block px-10 py-4 text-sm tracking-widest text-white/60 hover:text-white transition-colors border-b border-transparent hover:border-white/30">
+                        機能を見る
+                    </a>
+                </div>
+
+                <!-- 3 Features -->
+                <div class="fade-text delay-1000 mt-20 grid md:grid-cols-3 gap-4 text-left max-w-4xl mx-auto">
+                    <div class="glass p-6 border border-accent/20">
+                        <div class="text-accent font-serif mb-2 text-lg">話せる安心</div>
+                        <div class="text-xs text-white/60 leading-relaxed">否定しない。結論を急がず、一緒に整理します。</div>
+                    </div>
+                    <div class="glass p-6 border border-accent2/20">
+                        <div class="text-accent2 font-serif mb-2 text-lg">見える整理</div>
+                        <div class="text-xs text-white/60 leading-relaxed">モヤっとを分解し、行動できる形に整えます。</div>
+                    </div>
+                    <div class="glass p-6 border border-accent/20">
+                        <div class="text-white font-serif mb-2 text-lg">残る資産</div>
+                        <div class="text-xs text-white/60 leading-relaxed">言葉・計画・ルールを保存して、チームで共有できます。</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Pain (Side) -->
+        <section id="pain" class="py-32 px-6 md:px-24 relative" data-scroll-section>
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-16">
+                    <h3 class="font-serif text-2xl md:text-3xl text-white mb-4 reveal-on-scroll">こんな状態、ありませんか？</h3>
+                    <p class="text-white/60 text-sm reveal-on-scroll">誰にも相談できず、頭の中が散らかったまま一日が終わる。</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll border-l-2 border-l-accent/50 border-t-0 border-r-0 border-b-0 rounded-l-none">
+                        <h4 class="font-serif text-lg mb-3 text-white">悩みを言葉にできない</h4>
+                        <p class="text-sm text-gray-400 leading-7">考えがまとまらず、判断が遅れる。結局、先延ばしになる。</p>
+                    </div>
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-100 border-l-2 border-l-accent2/50 border-t-0 border-r-0 border-b-0 rounded-l-none">
+                        <h4 class="font-serif text-lg mb-3 text-white">社員には弱音を見せられない</h4>
+                        <p class="text-sm text-gray-400 leading-7">社内の前向きさは保ちたい。でも本音は抱えがち。</p>
+                    </div>
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-200 border-l-2 border-l-accent2/50 border-t-0 border-r-0 border-b-0 rounded-l-none">
+                        <h4 class="font-serif text-lg mb-3 text-white">計画や仕組み化が後回し</h4>
+                        <p class="text-sm text-gray-400 leading-7">就業規則、営業マニュアル、手順書…必要なのはわかってる。</p>
+                    </div>
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-300 border-l-2 border-l-accent/50 border-t-0 border-r-0 border-b-0 rounded-l-none">
+                        <h4 class="font-serif text-lg mb-3 text-white">会社の強みが言語化できない</h4>
+                        <p class="text-sm text-gray-400 leading-7">HP・採用・営業で“伝わる言葉”がない。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Solution -->
+        <section id="solution" class="py-32 px-6 md:px-24 relative bg-sub/30" data-scroll-section>
+            <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/5 blur-[100px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-5xl mx-auto relative z-10">
+                <div class="mb-20 text-center">
+                    <span class="block font-eng text-accent tracking-widest mb-4 reveal-on-scroll">CORE PHILOSOPHY</span>
+                    <h3 class="font-serif text-3xl md:text-4xl text-white mb-6 reveal-on-scroll">解決の考え方</h3>
+                    <p class="text-white/70 leading-relaxed reveal-on-scroll">
+                        対話で思考を整理し、アプリで仕組みに変える。<br>それらを一本につなぎます。
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Benefit 1 -->
+                    <div class="glass p-10 hover:bg-white/5 transition-all duration-700 reveal-on-scroll border border-white/10">
+                        <span class="badge border-accent/50 text-accent">結論を急がない設計</span>
+                        <h4 class="font-serif text-2xl mb-4 text-white mt-4">まずは、吐き出してOK</h4>
+                        <p class="text-sm text-gray-400 leading-7">
+                            社長の悩みは、正解探しよりも「整理」が先です。<br>
+                            ここでは答えを押しつけず、考える順番を整えていきます。
+                        </p>
+                    </div>
+
+                    <!-- Benefit 2 -->
+                    <div class="glass p-10 hover:bg-white/5 transition-all duration-700 reveal-on-scroll delay-100 border border-white/10">
+                        <span class="badge border-accent2/50 text-accent2">使った分だけ資産化</span>
+                        <h4 class="font-serif text-2xl mb-4 text-white mt-4">言葉が残ると、会社が楽になる</h4>
+                        <p class="text-sm text-gray-400 leading-7 mb-4">
+                            計画・朝礼メッセージ・ルール・強み。<br>
+                            ふわっとしていたものが、共有できる“会社の型”になります。
+                        </p>
+                        <p class="text-xs text-white/50 border-l-2 border-accent/30 pl-3 italic">
+                            「相談して終わり」ではなく、「相談した内容が積み上がる」仕組みです。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. GPTs -->
+        <section id="gpts" class="py-32 px-6 md:px-24 relative" data-scroll-section>
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-24 flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-8">
+                    <div>
+                        <h3 class="font-serif text-3xl md:text-4xl text-white mb-4 reveal-on-scroll">６つの相棒</h3>
+                        <p class="text-white/60 text-sm reveal-on-scroll">社長の状況に合わせて、相談相手を切り替えられます。</p>
+                    </div>
+                    <p class="text-gradient-accent text-sm tracking-widest mt-4 md:mt-0 reveal-on-scroll">AI PARTNERS</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- GPT 1 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll">
+                        <span class="badge">相談</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">社長の相談相手GPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">モヤっと、迷い、不安を言葉に。否定せず整理します。</p>
+                    </div>
+                    <!-- GPT 2 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-100">
+                        <span class="badge">計画</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">事業計画GPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">構想を一枚に。売上・顧客・強み・打ち手を整えます。</p>
+                    </div>
+                    <!-- GPT 3 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-200">
+                        <span class="badge">一言</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">社員モチベUP GPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">朝礼・社内LINE・週報に使える“前向き一言”を作成。</p>
+                    </div>
+                    <!-- GPT 4 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll">
+                        <span class="badge">仕組み</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">就業規則・営業マニュアルGPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">会社の型づくり。ルールと手順を“まず形”にします。</p>
+                    </div>
+                    <!-- GPT 5 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-100">
+                        <span class="badge">言語化</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">強み発見GPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">宝探し。HP・採用・営業で伝わる言葉を引き出します。</p>
+                    </div>
+                    <!-- GPT 6 -->
+                    <div class="group glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-200">
+                        <span class="badge">提案</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">次の一手 提案GPT</h4>
+                        <p class="text-sm text-gray-400 leading-7">状況を整理し、今週やるべき“現実的な一歩”を提案します。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Apps -->
+        <section id="apps" class="py-32 px-6 md:px-24 bg-sub/30" data-scroll-section>
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-24 flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-8">
+                    <div>
+                        <h3 class="font-serif text-3xl md:text-4xl text-white mb-4 reveal-on-scroll">６つのアプリ 資産化ツール</h3>
+                        <p class="text-white/60 text-sm reveal-on-scroll">相談の内容を、会社の資産として残します。</p>
+                    </div>
+                    <p class="text-gradient-accent text-sm tracking-widest mt-4 md:mt-0 reveal-on-scroll">ASSETS TOOLS</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- App 1 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll border border-accent/10">
+                        <span class="badge border-accent/30 text-accent">整理</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">社長のモヤっと整理ノート</h4>
+                        <p class="text-sm text-gray-400 leading-7">相談内容を保存・分類・振り返り。思考のログが残ります。</p>
+                    </div>
+                    <!-- App 2 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-100 border border-accent2/10">
+                        <span class="badge border-accent2/30 text-accent2">計画</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">未来1枚シート</h4>
+                        <p class="text-sm text-gray-400 leading-7">事業計画を1画面に整理。共有・PDF化にも対応しやすい設計。</p>
+                    </div>
+                    <!-- App 3 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-200 border border-accent/10">
+                        <span class="badge border-accent/30 text-accent">朝礼</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">朝礼メッセージボード</h4>
+                        <p class="text-sm text-gray-400 leading-7">一言メッセージを貯めて、忙しい朝でも迷わない。</p>
+                    </div>
+                    <!-- App 4 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll border border-accent2/10">
+                        <span class="badge border-accent2/30 text-accent2">型</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">会社の型づくりノート</h4>
+                        <p class="text-sm text-gray-400 leading-7">就業規則、営業トーク、手順書を“まず残す”ための場所。</p>
+                    </div>
+                    <!-- App 5 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-100 border border-accent/10">
+                        <span class="badge border-accent/30 text-accent">魅力</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">強みレーダー</h4>
+                        <p class="text-sm text-gray-400 leading-7">質問に答えるだけで強みが浮き彫りに。発信素材にも。</p>
+                    </div>
+                    <!-- App 6 -->
+                    <div class="glass p-8 hover:bg-white/5 transition-all duration-500 reveal-on-scroll delay-200 border border-accent2/10">
+                        <span class="badge border-accent2/30 text-accent2">共有</span>
+                        <h4 class="font-serif text-xl mb-4 text-white">チーム共有カード</h4>
+                        <p class="text-sm text-gray-400 leading-7">社長の考えを、チームに伝わる形でカード化して共有。</p>
+                    </div>
+                </div>
+                <p class="text-center text-xs text-white/40 mt-12 reveal-on-scroll">※ 実装は段階的に拡張できます。まずは「相談 → 保存」の最短ルートからでOKです🙂</p>
+            </div>
+        </section>
+
+        <!-- 6. Process -->
+        <section id="steps" class="py-32 px-6 md:px-24" data-scroll-section>
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-24">
+                    <span class="font-eng text-white/30 tracking-widest text-sm reveal-on-scroll">PROCESS</span>
+                    <h3 class="font-serif text-3xl mt-4 split-text-scroll text-white">使い方はシンプル</h3>
+                    <p class="text-white/60 text-sm mt-4 reveal-on-scroll">相談 → 整理 → 保存 → 発信 → 共有。これだけです。</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-8">
+                    <!-- Step 1 -->
+                    <div class="reveal-on-scroll flex flex-col items-center text-center">
+                        <div class="step-num mb-6">1</div>
+                        <h4 class="font-serif text-lg mb-2 text-white">相談する</h4>
+                        <p class="text-xs text-white/60">モヤっとをそのまま話してOK。</p>
+                    </div>
+                    <!-- Step 2 -->
+                    <div class="reveal-on-scroll flex flex-col items-center text-center delay-100">
+                        <div class="step-num mb-6">2</div>
+                        <h4 class="font-serif text-lg mb-2 text-white">整理される</h4>
+                        <p class="text-xs text-white/60">論点・優先順位・次の一手が見える。</p>
+                    </div>
+                    <!-- Step 3 -->
+                    <div class="reveal-on-scroll flex flex-col items-center text-center delay-200">
+                        <div class="step-num mb-6">3</div>
+                        <h4 class="font-serif text-lg mb-2 text-white">保存する</h4>
+                        <p class="text-xs text-white/60">相談内容をノートに残して資産化。</p>
+                    </div>
+                    <!-- Step 4 -->
+                    <div class="reveal-on-scroll flex flex-col items-center text-center delay-300">
+                        <div class="step-num mb-6">4</div>
+                        <h4 class="font-serif text-lg mb-2 text-white">発信できる</h4>
+                        <p class="text-xs text-white/60">HP・SNS・採用の文章に転用できる。</p>
+                    </div>
+                    <!-- Step 5 -->
+                    <div class="reveal-on-scroll flex flex-col items-center text-center delay-400">
+                        <div class="step-num mb-6">5</div>
+                        <h4 class="font-serif text-lg mb-2 text-white">共有できる</h4>
+                        <p class="text-xs text-white/60">チームが同じ方向を向ける。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. CTA -->
+        <section id="cta" class="py-40 px-6 text-center relative overflow-hidden" data-scroll-section>
+            <!-- Background Glow -->
+             <div class="absolute inset-0 bg-gradient-to-t from-accent/10 via-transparent to-transparent pointer-events-none"></div>
+             <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent2/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-4xl mx-auto relative z-10">
+                <div class="glass p-8 md:p-16 border border-white/20">
+                    <h2 class="font-serif text-3xl md:text-5xl mb-8 leading-tight text-white reveal-on-scroll">
+                        まずは無料で<br>体験してみませんか？
+                    </h2>
+                    <p class="text-sm text-white/60 mb-12 leading-7 reveal-on-scroll">
+                        「相談していいんだ」と思えた瞬間から、社長の仕事は少し楽になります🙂<br>
+                        相談内容は、社長のペースで。結論を急がず、いま必要な一歩から。
+                    </p>
+                    
+                    <div class="flex flex-col md:flex-row gap-6 justify-center items-center reveal-on-scroll mb-16">
+                        <!-- Added target="_blank" -->
+                        <a href="https://www.smileplusctg.com/contact" target="_blank" rel="noopener noreferrer" class="btn-glow inline-block text-lg md:text-xl font-serif py-4 px-12 border border-white/30 text-white hover:border-white/60 hover:bg-white/5 transition-all w-full md:w-auto">
+                            無料で相談してみる
+                        </a>
+                    </div>
+
+                    <!-- Contact Form Mock -->
+                    <div class="border-t border-white/10 pt-16 text-left reveal-on-scroll max-w-2xl mx-auto">
+                        <h3 class="font-serif text-xl mb-6 text-white text-center">導入相談・デモのご依頼</h3>
+                        <form onsubmit="event.preventDefault(); showToast('送信先を設定してください🙂');" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input required placeholder="お名前" class="w-full p-4 rounded-xl text-sm" />
+                                <input required type="email" placeholder="メールアドレス" class="w-full p-4 rounded-xl text-sm" />
+                            </div>
+                            <textarea required placeholder="ご相談内容（例：モヤっとを整理したい、計画を作りたい、就業規則を整えたい など）" class="w-full p-4 rounded-xl text-sm min-h-[120px]"></textarea>
+                            <div class="flex flex-col md:flex-row gap-4 justify-center items-center mt-6">
+                                <button type="submit" class="bg-white text-deep font-bold px-8 py-3 rounded-full hover:bg-gray-200 transition-colors w-full md:w-auto">送信する</button>
+                                <a href="#" onclick="showToast('LINEリンクに差し替えてください🙂'); return false;" class="text-sm text-white/60 hover:text-white border-b border-transparent hover:border-white transition-all pb-1">LINEで相談</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. Footer -->
+        <footer class="bg-deep border-t border-white/5 text-white/30 text-xs py-12 px-6 md:px-12" data-scroll-section>
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <span class="font-serif tracking-widest block mb-2 text-white/60">考えるを、ひとりにしない</span>
+                    <span>© Your Brand</span>
+                </div>
+                <div class="flex gap-8">
+                    <a href="#gpts" class="hover:text-white transition-colors">GPTs</a>
+                    <a href="#apps" class="hover:text-white transition-colors">アプリ</a>
+                    <!-- Updated footer link target too -->
+                    <a href="https://www.smileplusctg.com/contact" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">お問い合わせ</a>
+                </div>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        // --- 1. Smooth Scroll (Lenis) ---
+        const lenis = new Lenis({
+            duration: 1.5,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+            touchMultiplier: 2,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // --- 2. Toast Notification ---
+        window.showToast = function(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    container.removeChild(toast);
+                }, 300);
+            }, 3000);
+        };
+
+
+        // --- 3. WebGL Background (Three.js - Dark Mode Nebula + Particles) ---
+        const initThree = () => {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050505, 0.001);
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            const group = new THREE.Group();
+            scene.add(group);
+
+            // Nebula Plane
+            const planeGeometry = new THREE.PlaneGeometry(20, 20);
+            const planeUniforms = {
+                u_time: { value: 0 },
+                u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
+                u_color1: { value: new THREE.Color('#020010') }, 
+                u_color2: { value: new THREE.Color('#2E0249') }, 
+                u_color3: { value: new THREE.Color('#090033') }  
+            };
+
+            const planeMaterial = new THREE.ShaderMaterial({
+                uniforms: planeUniforms,
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float u_time;
+                    uniform vec2 u_resolution;
+                    uniform vec2 u_mouse;
+                    uniform vec3 u_color1;
+                    uniform vec3 u_color2;
+                    uniform vec3 u_color3;
+                    varying vec2 vUv;
+
+                    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+                    float snoise(vec2 v) {
+                        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                        vec2 i  = floor(v + dot(v, C.yy) );
+                        vec2 x0 = v - i + dot(i, C.xx);
+                        vec2 i1;
+                        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                        vec4 x12 = x0.xyxy + C.xxzz;
+                        x12.xy -= i1;
+                        i = mod289(i);
+                        vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                        vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                        m = m*m ;
+                        m = m*m ;
+                        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                        vec3 h = abs(x) - 0.5;
+                        vec3 ox = floor(x + 0.5);
+                        vec3 a0 = x - ox;
+                        m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                        vec3 g;
+                        g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                        return 130.0 * dot(m, g);
+                    }
+
+                    void main() {
+                        vec2 st = gl_FragCoord.xy / u_resolution.xy;
+                        st.x *= u_resolution.x / u_resolution.y;
+                        float noise1 = snoise(st * 0.8 + u_time * 0.03);
+                        float noise2 = snoise(st * 1.5 - u_time * 0.02 + u_mouse * 0.1);
+                        float fluid = smoothstep(0.1, 0.9, noise1 * 0.6 + noise2 * 0.4 + 0.5);
+                        vec3 color = mix(u_color1, u_color2, fluid * 0.5);
+                        float highlight = smoothstep(0.48, 0.52, noise2);
+                        vec3 accentColor = mix(vec3(0.54, 0.36, 0.96), vec3(0.02, 0.71, 0.83), st.y); 
+                        color += accentColor * highlight * 0.25; 
+                        gl_FragColor = vec4(color, 1.0);
+                    }
+                `
+            });
+            const bgMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+            bgMesh.position.z = -10;
+            bgMesh.scale.set(50, 50, 1);
+            group.add(bgMesh);
+
+            // Particles
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 300;
+            const posArray = new Float32Array(particlesCount * 3);
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 15; 
+            }
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            const getParticleTexture = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 32; canvas.height = 32;
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0,0,32,32);
+                const texture = new THREE.Texture(canvas);
+                texture.needsUpdate = true;
+                return texture;
+            };
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.05,
+                map: getParticleTexture(),
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            group.add(particlesMesh);
+
+            const clock = new THREE.Clock();
+            let mouseX = 0, mouseY = 0;
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            window.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX) * 0.0005;
+                mouseY = (event.clientY - windowHalfY) * 0.0005;
+                planeUniforms.u_mouse.value.x = event.clientX / window.innerWidth;
+                planeUniforms.u_mouse.value.y = 1.0 - event.clientY / window.innerHeight;
+            });
+
+            const animate = () => {
+                const elapsedTime = clock.getElapsedTime();
+                planeUniforms.u_time.value = elapsedTime;
+                particlesMesh.rotation.y = elapsedTime * 0.02;
+                particlesMesh.rotation.x = mouseY * 0.5;
+                particlesMesh.rotation.y += mouseX * 0.5;
+                bgMesh.rotation.z = Math.sin(elapsedTime * 0.05) * 0.02;
+                renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+            };
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                planeUniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+            });
+            container.classList.add('loaded');
+        };
+        initThree();
+
+
+        // --- 4. Animations ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const splitTextElements = document.querySelectorAll('.split-text, .split-text-scroll');
+            
+            splitTextElements.forEach(el => {
+                // Check if already processed
+                if(el.querySelector('.char')) return;
+
+                // Check if content has HTML tags other than <br>
+                // We'll treat any element with child tags (div, span, etc) as "complex" 
+                // and fallback to simple fade-in to avoid breaking HTML structure.
+                const hasTags = /<(?!\/?br\s*\/?)[^>]+>/i.test(el.innerHTML);
+
+                if (hasTags) {
+                    // Complex content: Fallback to simple fade-in
+                    el.classList.remove('split-text', 'split-text-scroll');
+                    el.classList.add('fade-text');
+                } else {
+                    // Simple content: Safe to split characters
+                    const lines = el.innerHTML.split(/<br\s*\/?>/i);
+                    el.innerHTML = lines.map(line => {
+                        // Split by character but preserve spaces
+                        return line.split('').map(char => {
+                            if(char.trim() === '') return char;
+                            return `<span class="char">${char}</span>`;
+                        }).join('');
+                    }).join('<br>');
+                }
+            });
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        const chars = entry.target.querySelectorAll('.char');
+                        chars.forEach((char, index) => {
+                            setTimeout(() => {
+                                char.classList.add('visible');
+                            }, index * 30);
+                        });
+                        if(entry.target.classList.contains('fade-text')) {
+                            entry.target.classList.add('opacity-100', 'translate-y-0');
+                        }
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.split-text, .reveal-on-scroll, .fade-text').forEach(el => {
+                if(el.classList.contains('fade-text')) {
+                    el.classList.add('opacity-0', 'translate-y-10', 'transition-all', 'duration-1000', 'ease-out');
+                }
+                observer.observe(el);
+            });
+            
+            // Manual trigger for Hero Split Text
+            setTimeout(() => {
+                const heroTitle = document.querySelector('.split-text');
+                if(heroTitle) {
+                    heroTitle.querySelectorAll('.char').forEach((char, i) => {
+                        setTimeout(() => char.classList.add('visible'), i * 40);
+                    });
+                }
+            }, 500);
+
+            // Smooth Scroll for Anchors
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    // Only prevent default if it's an internal hash link
+                    const targetId = this.getAttribute('href');
+                    if (targetId.startsWith('#')) {
+                        e.preventDefault();
+                        if(targetId === '#') {
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                            const target = document.querySelector(targetId);
+                            if(target) {
+                                target.scrollIntoView({
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
